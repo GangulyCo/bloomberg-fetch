@@ -1,0 +1,4 @@
+# blpapi - Install separately (see below)
+pandas
+numpy
+ipython
