@@ -12,6 +12,7 @@ service, session = connect_to_cmp()
 security_list = [
     "FNA 1997-M1",
     "CMAC 1996-C2",
+    "BANK5 2024-5YR10",
     "FDICR 1996-C1",
     "ASFS 1996-FHA1",
     "GMACN 2004-POKA",
