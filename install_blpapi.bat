@@ -12,7 +12,7 @@ echo Activating virtual environment...
 call venv\Scripts\activate.bat
 
 echo Installing blpapi from Bloomberg repository...
-pip install --index-url=https://bcms.bloomberg.com/pip/simple blpapi
+pip install --index-url=https://blpapi.bloomberg.com/repository/releases/python/simple/ blpapi
 
 if %ERRORLEVEL% EQU 0 (
     echo.
