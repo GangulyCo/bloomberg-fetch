@@ -570,7 +570,7 @@ def run_AssetRequest(
                 data = response["assets"]
             df = table_to_dataframe(data)
 
-            if df is None:
+            if df is None or df.empty:
                 print(
                     f"Failed to process request for security {req['security']}: No data returned."
                 )
@@ -580,6 +580,11 @@ def run_AssetRequest(
         except Exception as e:
             print(f"Failed to process request for security {req['security']}: {e}")
 
+    # Check if we have any successful dataframes
+    if not dataframes:
+        print("Warning: No data was retrieved for any security.")
+        return pd.DataFrame()  # Return empty dataframe
+    
     df_agg = stack_dataframes(dataframes)  # Stack the dataframes together
 
     return df_agg
