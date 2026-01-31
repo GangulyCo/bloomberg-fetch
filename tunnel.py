@@ -20,8 +20,7 @@ def load_config():
         print(f"Config file not found: {config_file}")
         print("Creating example config file...")
         example_config = {
-            "ngrok_authtoken": "YOUR_NGROK_AUTH_TOKEN_HERE",
-            "ngrok_path": ""
+            "ngrok_authtoken": "YOUR_NGROK_AUTH_TOKEN_HERE"
         }
         with open(config_file, 'w') as f:
             json.dump(example_config, f, indent=2)
@@ -47,26 +46,20 @@ def start_tunnel(port=8194):
             print("Get your token from: https://dashboard.ngrok.com/get-started/your-authtoken")
             return
         
-        # Set custom ngrok path if specified (helps avoid Windows permission issues)
-        ngrok_path = config.get('ngrok_path', '')
-        if ngrok_path:
-            conf.get_default().ngrok_path = ngrok_path
-            print(f"Using custom ngrok path: {ngrok_path}")
+        # Check if ngrok.exe is in the same directory as this script
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        local_ngrok = os.path.join(script_dir, 'ngrok.exe' if sys.platform == 'win32' else 'ngrok')
+        
+        if os.path.exists(local_ngrok):
+            conf.get_default().ngrok_path = local_ngrok
+            print(f"Using ngrok binary from script directory: {local_ngrok}")
         else:
-            # Check if ngrok.exe is in the same directory as this script
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            local_ngrok = os.path.join(script_dir, 'ngrok.exe' if sys.platform == 'win32' else 'ngrok')
-            
-            if os.path.exists(local_ngrok):
-                conf.get_default().ngrok_path = local_ngrok
-                print(f"Using ngrok binary from script directory: {local_ngrok}")
-            else:
-                # Set ngrok binary to a user-writable location
-                pyngrok_config = conf.get_default()
-                bin_dir = os.path.join(os.path.expanduser('~'), '.ngrok2')
-                os.makedirs(bin_dir, exist_ok=True)
-                pyngrok_config.ngrok_path = os.path.join(bin_dir, 'ngrok.exe' if sys.platform == 'win32' else 'ngrok')
-                print(f"Using ngrok binary location: {pyngrok_config.ngrok_path}")
+            # Set ngrok binary to a user-writable location
+            pyngrok_config = conf.get_default()
+            bin_dir = os.path.join(os.path.expanduser('~'), '.ngrok2')
+            os.makedirs(bin_dir, exist_ok=True)
+            pyngrok_config.ngrok_path = os.path.join(bin_dir, 'ngrok.exe' if sys.platform == 'win32' else 'ngrok')
+            print(f"Using ngrok binary location: {pyngrok_config.ngrok_path}")
         
         # Set ngrok authtoken
         ngrok.set_auth_token(authtoken)
@@ -83,11 +76,11 @@ def start_tunnel(port=8194):
         print(f"{'='*60}\n")
         print("PrTroubleshooting:")
         print("1. Make sure pyngrok is installed: pip install pyngrok")
-        print("2. On Windows, try running as Administrator")
-        print("3. Check your antivirus isn't blocking ngrok")
-        print("4. Verify your authtoken in config.json is correct")
-        print("\nIf the issue persists, download ngrok manually from https://ngrok.com/download")
-        print("and set the 'ngrok_path' in config.json to point to ngrok.exe
+        print("2. Download ngrok from https://ngrok.com/download")
+        print("   and place ngrok.exe in the same folder as this script")
+        print("3. On Windows, try running as Administrator")
+        print("4. Check your antivirus isn't blocking ngrok")
+        print("5. Verify your authtoken in config.json is correct")
         # Keep the tunnel alive
         try:
             while True:
