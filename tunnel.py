@@ -53,6 +53,12 @@ def start_tunnel(port=8194):
         if os.path.exists(local_ngrok):
             conf.get_default().ngrok_path = local_ngrok
             print(f"Using ngrok binary from script directory: {local_ngrok}")
+            
+            # Set config directory to user home to avoid permission issues
+            config_dir = os.path.join(os.path.expanduser('~'), '.ngrok2')
+            os.makedirs(config_dir, exist_ok=True)
+            conf.get_default().config_path = os.path.join(config_dir, 'ngrok.yml')
+            print(f"Using config directory: {config_dir}")
         else:
             # Set ngrok binary to a user-writable location
             pyngrok_config = conf.get_default()

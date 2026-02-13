@@ -4,3 +4,4 @@ numpy
 ipython
 openpyxl
 pyngrok
+tqdm

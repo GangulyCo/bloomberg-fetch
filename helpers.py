@@ -1,5 +1,5 @@
 import blpapi  # Bloomberg BLPAPI, this and json are all that is needed for CMP.
-from blpapi import CorrelationId  # For keeping track of multiple requests
+from blpapi.correlationid import CorrelationId  # For keeping track of multiple requests
 import json  # CMP uses JSON for requests and response
 import time
 import re
@@ -8,9 +8,11 @@ import pandas as pd
 import numpy as np
 from collections import OrderedDict
 import logging  # For logging errors and debug information
+from tqdm import tqdm  # For progress bars
 from IPython.display import display, HTML  # For displaying HTML in Jupyter Notebook
 
 
+# def connect_to_cmp(host="localhost", port=8194):
 def connect_to_cmp(host="localhost", port=8194):
     """
     Establishes a session with Bloomberg CMP service.
@@ -23,11 +25,11 @@ def connect_to_cmp(host="localhost", port=8194):
         service (blpapi.Service): Connected CMP service.
         session (blpapi.Session): Active Bloomberg session.
     """
-    options = blpapi.SessionOptions()
+    options = blpapi.sessionoptions.SessionOptions()
     options.setServerHost(host)
     options.setServerPort(port)
 
-    session = blpapi.Session(options)
+    session = blpapi.session.Session(options)
     if not session.start():
         print("Failed to start Bloomberg session.")
         raise ConnectionError("Failed to start Bloomberg session.")
@@ -231,7 +233,10 @@ def make_multiple_requests(
                 pending.remove(corr_id_int)
                 logging.error("Request %d failed: %s", corr_id_int, error_info)
             # Process partial or full responses.
-            elif event_type in [blpapi.Event.PARTIAL_RESPONSE, blpapi.Event.RESPONSE]:
+            elif event_type in [
+                blpapi.event.Event.PARTIAL_RESPONSE,
+                blpapi.event.Event.RESPONSE,
+            ]:
                 if msg.hasElement("errorResponse"):
                     error_msg = (
                         msg.getElement("errorResponse")
@@ -335,7 +340,7 @@ def get_response(request, session):
     while True:
         event = session.nextEvent(1000)
         for msg in event:
-            if event.eventType() == blpapi.Event.RESPONSE:
+            if event.eventType() == blpapi.event.Event.RESPONSE:
                 return msg
             elif msg.messageType() == "RequestFailure":
                 print("Request failed.")
@@ -462,10 +467,13 @@ def stack_dataframes(dataframes, columns=None, strict=False):
                     "Dataframe columns do not match the specified columns."
                 )
         else:
-            # Add missing columns with NA values
-            for col in columns:
-                if col not in df.columns:
-                    df[col] = pd.NA
+            # Add missing columns with NA values all at once to avoid fragmentation
+            missing_cols = [col for col in columns if col not in df.columns]
+            if missing_cols:
+                missing_df = pd.DataFrame(
+                    {col: pd.NA for col in missing_cols}, index=df.index
+                )
+                df = pd.concat([df, missing_df], axis=1)
             # Reorder columns to match the specified order
             df = df[columns]
 
@@ -485,6 +493,7 @@ def run_AssetRequest(
     include_paiddown=False,
     field_list=[],
     collateral_report="",
+    error_log_file=None,
 ):
     """
     Function to perform an AssetRequest on multiple securities using CMP service.
@@ -497,6 +506,7 @@ def run_AssetRequest(
       include_paiddown: Boolean flag to include paid down assets.
       field_list: List of field names to retrieve or a comma-separated string of field names.
       collateral_report: Collateral report to run (CMBS only, only one report at a time)
+      error_log_file: Path to error log file. If None, errors are printed to console.
 
     Returns:
       List of responses from the CMP service.
@@ -561,7 +571,13 @@ def run_AssetRequest(
     dataframes = []
     df_agg = None
 
-    for req in requests_json:
+    # Open error log file if specified
+    error_log = None
+    if error_log_file:
+        error_log = open(error_log_file, "w", encoding="utf-8")
+
+    # Use tqdm for progress bar
+    for req in tqdm(requests_json, desc="Processing deals", unit="deal"):
         try:
             response = make_request(req, service, session, parse_response=True)
             if len(formatted_collateral_report) > 0:
@@ -571,20 +587,26 @@ def run_AssetRequest(
             df = table_to_dataframe(data)
 
             if df is None or df.empty:
-                print(
-                    f"Failed to process request for security {req['security']}: No data returned."
-                )
+                error_msg = f"No data returned for security: {req['security']}\n"
+                if error_log:
+                    error_log.write(error_msg)
                 continue
             else:
                 dataframes.append(df)
         except Exception as e:
-            print(f"Failed to process request for security {req['security']}: {e}")
+            error_msg = f"Error processing {req['security']}: {str(e)}\n"
+            if error_log:
+                error_log.write(error_msg)
+
+    # Close error log file
+    if error_log:
+        error_log.close()
 
     # Check if we have any successful dataframes
     if not dataframes:
         print("Warning: No data was retrieved for any security.")
         return pd.DataFrame()  # Return empty dataframe
-    
+
     df_agg = stack_dataframes(dataframes)  # Stack the dataframes together
 
     return df_agg

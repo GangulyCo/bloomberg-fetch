@@ -2,3 +2,5 @@
 .vscode/
 *ipynb
 config.json
+
+__pycache__/
